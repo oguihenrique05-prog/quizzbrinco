@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+   <title>Curso Brincos de Cerâmica Plástica - Renda Extra Online</title>
+  
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+   
+   <link rel="preload" href="head1.webp" as="image" fetchpriority="high">
+
+   <script src="https://cdn.tailwindcss.com"></script>
+  
+   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,600;0,700;0,900;1,700;1,900&family=Playfair+Display:ital,wght@1,600;1,700;1,800&display=swap" rel="stylesheet">
+
+   <script>
+   (function () {
+     "use strict";
+
+     var API_BASE = "https://brain-saas.vercel.app";
+     var PIXEL_PUBLIC_KEY = "px_D7XBCpYqp6dO4nTz";
+     var prefix = ["https://lastlink.com","https://kirvano.com","https://pay.kirvano.com","https://checkout.kirvano.com","pay.yampi.com.br"];
+     var TRACK_URL = API_BASE.replace(/\/$/, "") + "/api/track";
+
+     function getCookie(name) {
+       var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
+       return match ? decodeURIComponent(match[2]) : null;
+     }
+
+     function setCookie(name, value, days) {
+       var d = new Date();
+       d.setTime(d.getTime() + (days || 365) * 24 * 60 * 60 * 1000);
+       document.cookie =
+         name + "=" + encodeURIComponent(value) +
+         "; path=/; expires=" + d.toUTCString() + "; SameSite=Lax";
+     }
+
+     function uuid() {
+       if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+       return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+         var r = (Math.random() * 16) | 0;
+         var v = c === "x" ? r : (r & 0x3) | 0x8;
+         return v.toString(16);
+       });
+     }
+
+     function getOrCreateSid() {
+       var sid = getCookie("mcapi_sid");
+       if (!sid) {
+         sid = uuid();
+         setCookie("mcapi_sid", sid, 365);
+       }
+       return sid;
+     }
+
+     function getQueryParam(name) {
+       try {
+         return new URL(location.href).searchParams.get(name);
+       } catch (e) {
+         return null;
+       }
+     }
+
+     function ensureFbp() {
+       var existing = getCookie("_fbp");
+       if (existing) return existing;
+
+       var fbp = "fb.1." + Date.now() + "." + Math.floor(Math.random() * 1e16);
+       setCookie("_fbp", fbp, 90);
+       return fbp;
+     }
+
+     function ensureFbc() {
+       var existing = getCookie("_fbc");
+       if (existing) return existing;
+
+       var fbclid = getQueryParam("fbclid");
+       if (!fbclid) return null;
+
+       var fbc = "fb.1." + Date.now() + "." + fbclid;
+       setCookie("_fbc", fbc, 90);
+       return fbc;
+     }
+
+     function safeResolveUrl(href) {
+       var resolved = href;
+       try { resolved = new URL(href, location.href).href; } catch (e) {}
+       return resolved;
+     }
+
+     function looksLikeCheckout(url) {
+       url = String(url || "");
+       for (var j = 0; j < prefix.length; j++) {
+         if (url.indexOf(prefix[j]) !== -1) return true;
+       }
+       var low = url.toLowerCase();
+       if (low.indexOf("checkout") !== -1 || low.indexOf("pay") !== -1 || low.indexOf("payment") !== -1) return true;
+       return false;
+     }
+
+     function buildUtms() {
+       var r = new URL(location.href);
+       var sid = getOrCreateSid();
+       var out = {};
+
+       out.utm_source = r.searchParams.get("utm_source") || "direto";
+       out.utm_term = "sid:" + sid;
+
+       if (r.searchParams.get("utm_medium")) out.utm_medium = r.searchParams.get("utm_medium");
+       if (r.searchParams.get("utm_campaign")) out.utm_campaign = r.searchParams.get("utm_campaign");
+       if (r.searchParams.get("utm_content")) out.utm_content = r.searchParams.get("utm_content");
+       if (r.searchParams.get("fbclid")) out.fbclid = r.searchParams.get("fbclid");
+
+       return out;
+     }
+
+     function applyUtmsToUrl(resolvedUrl, utms, forceUtmTerm) {
+       try {
+         var u = new URL(resolvedUrl);
+
+         for (var key in utms) {
+           if (!utms.hasOwnProperty(key)) continue;
+           if (!utms[key]) continue;
+
+           if (key === "utm_term") {
+             if (forceUtmTerm) u.searchParams.set("utm_term", utms.utm_term);
+             else if (!u.searchParams.get("utm_term")) u.searchParams.set("utm_term", utms.utm_term);
+             continue;
+           }
+
+           if (!u.searchParams.get(key)) u.searchParams.set(key, utms[key]);
+         }
+
+         return u.toString();
+       } catch (e) {
+         return resolvedUrl;
+       }
+     }
+
+     function sendEvent(payload) {
+       try {
+         if (navigator.sendBeacon) {
+           var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+           navigator.sendBeacon(TRACK_URL, blob);
+           return;
+         }
+       } catch (e) {}
+
+       fetch(TRACK_URL, {
+         method: "POST",
+         mode: "cors",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify(payload),
+         keepalive: true
+       }).catch(function(){});
+     }
+
+     function postEvent(eventName) {
+       var sid = getOrCreateSid();
+
+       var payload = {
+         pixel_id: PIXEL_PUBLIC_KEY,
+         sid: sid,
+         event: eventName,
+         event_id: eventName + "_" + sid + "_" + Date.now(),
+         url: location.href,
+         utm: buildUtms(),
+         fbp: ensureFbp(),
+         fbc: ensureFbc()
+       };
+
+       sendEvent(payload);
+     }
+
+     function updateLinks() {
+       var utms = buildUtms();
+       var anchors = document.querySelectorAll("a[href]");
+       for (var i = 0; i < anchors.length; i++) {
+         var a = anchors[i];
+         var href = a.getAttribute("href") || "";
+         if (!href) continue;
+
+         var resolved = safeResolveUrl(href);
+         if (!looksLikeCheckout(resolved)) continue;
+
+         a.href = applyUtmsToUrl(resolved, utms, true);
+       }
+     }
+
+     function init() {
+       ensureFbp();
+       updateLinks();
+       postEvent("PageView");
+
+       var tries = 0;
+       var t = setInterval(function () {
+         tries++;
+         updateLinks();
+         if (tries >= 10) clearInterval(t);
+       }, 1000);
+
+       if (window.MutationObserver) {
+         var mo = new MutationObserver(function () { updateLinks(); });
+         mo.observe(document.documentElement, { childList: true, subtree: true });
+       }
+     }
+
+     document.addEventListener("click", function (e) {
+       var el = e.target;
+       var a = el && el.closest ? el.closest("a") : null;
+       if (!a) return;
+
+       var href = a.getAttribute("href") || "";
+       if (!href) return;
+
+       var resolved = safeResolveUrl(href);
+       if (!looksLikeCheckout(resolved)) return;
+
+       var utms = buildUtms();
+       a.href = applyUtmsToUrl(resolved, utms, true);
+
+       postEvent("InitiateCheckout");
+     }, true);
+
+     if (document.readyState === "loading") {
+       document.addEventListener("DOMContentLoaded", init);
+     } else {
+       init();
+     }
+   })();
+   </script>
+
+   <style>
+       html { scroll-behavior: smooth; }
+       
+       body {
+           font-family: 'Inter', sans-serif;
+           background-color: #fafaf9;
+           background-image: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.8) 0%, rgba(250, 250, 249, 0) 70%);
+           color: #111827;
+           margin: 0;
+           padding: 0;
+           overflow-x: hidden;
+           -webkit-font-smoothing: antialiased;
+       }
+
+       .text-brand { color: #be123c; }
+       .bg-brand { background-color: #be123c; }
+       
+       .card-light {
+           background-color: rgba(255, 255, 255, 0.85);
+           backdrop-filter: blur(16px);
+           -webkit-backdrop-filter: blur(16px);
+           border: 1px solid rgba(255, 255, 255, 0.9);
+           border-radius: 12px;
+           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+       }
+
+       .blend-image {
+           -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 75%, rgba(0,0,0,0) 100%);
+           mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 75%, rgba(0,0,0,0) 100%);
+       }
+
+       .btn-primary {
+           background: linear-gradient(to right, #10b981, #059669);
+           color: white;
+           transition: all 0.2s ease-in-out;
+           box-shadow: 0 8px 25px -5px rgba(16, 185, 129, 0.4);
+       }
+       .btn-primary:active { transform: scale(0.96); }
+
+       @keyframes pulse-btn {
+           0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+           50% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+           100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+       }
+       .animate-pulse-btn { animation: pulse-btn 2.5s infinite; }
+
+       .fade-up {
+           opacity: 0;
+           transform: translateY(20px);
+           transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+       }
+       .fade-up.is-visible {
+           opacity: 1;
+           transform: translateY(0);
+       }
+   </style>
+</head>
+<body class="w-full flex flex-col items-center text-center">
+
+   <div class="w-full max-w-[480px] flex flex-col items-center relative min-h-screen">
+
+       <!-- HERO SECTION -->
+       <div class="w-full flex flex-col items-center pt-8 pb-4 px-6 z-10 relative">
+           <p class="text-[10px] font-black tracking-[0.2em] uppercase mb-2 text-brand text-center">TREINAMENTO ONLINE COMPLETO</p>
+           
+           <h1 class="text-[1.4rem] md:text-[1.8rem] font-extrabold italic leading-snug tracking-tight mb-3 text-gray-900 text-center">
+               Aprenda a criar brincos artesanais com Cerâmica Plástica e construa uma fonte de renda extra com <span class="text-brand underline decoration-2 underline-offset-4 font-black">apenas 1 hora por dia</span>.
+           </h1>
+           
+           <p class="text-[13px] md:text-[15px] font-medium leading-relaxed mb-6 text-gray-600 text-center px-2">
+               O método passo a passo para criar peças inquebráveis e super leves. <span class="font-bold text-gray-800 italic">Usando o forno comum da sua cozinha e sem precisar de dom artístico.</span>
+           </p>
+           
+           <div class="relative w-full flex justify-center items-center mb-6">
+               <img src="head1.webp" alt="Brincos de Cerâmica Plástica" class="w-[110%] max-w-[300px] h-auto object-contain blend-image">
+           </div>
+
+           <div class="mb-6 text-center">
+               <p class="text-[12px] text-brand font-black uppercase tracking-widest italic">Acesso Online Imediato</p>
+           </div>
+
+           <button onclick="document.getElementById('checkoutSection').scrollIntoView({behavior: 'smooth'})" class="animate-pulse-btn w-full py-4 px-6 btn-primary font-black text-[1rem] rounded-xl uppercase tracking-wider mb-6 shadow-lg">
+               QUERO ACESSAR O CURSO AGORA
+           </button>
+       </div>
+
+       <!-- POR QUE FUNCIONA? -->
+       <div class="w-full flex flex-col items-center px-5 pt-8 pb-8 fade-up bg-gray-50 border-t border-gray-100">
+           <p class="text-brand text-[11px] font-black uppercase tracking-widest mb-2 text-center">O DIFERENCIAL</p>
+           <h2 class="text-2xl font-black leading-tight text-gray-900 mb-8 text-center">O segredo da <span class="text-brand">Margem de Lucro</span> que ninguém te conta.</h2>
+           
+           <div class="w-full space-y-4">
+               <div class="card-light p-5 flex items-start gap-4 text-left">
+                   <div class="w-8 h-8 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5"><span class="text-brand text-xs font-black">✔</span></div>
+                   <div>
+                       <h4 class="font-bold text-gray-900 text-[15px] mb-1">Custo Baixíssimo</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Produza pagando menos de R$ 2,00 em material e venda por preços que valorizam o seu artesanato. Um pacote de massa rende dezenas de pares.</p>
+                   </div>
+               </div>
+               
+               <div class="card-light p-5 flex items-start gap-4 text-left">
+                   <div class="w-8 h-8 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5"><span class="text-brand text-xs font-black">✔</span></div>
+                   <div>
+                       <h4 class="font-bold text-gray-900 text-[15px] mb-1">Forno Comum de Casa</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Esqueça fornos industriais caros! A cerâmica plástica assa em apenas 30 minutinhos a 130°C no forno convencional que você já tem na sua cozinha.</p>
+                   </div>
+               </div>
+
+               <div class="card-light p-5 flex items-start gap-4 text-left">
+                   <div class="w-8 h-8 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0 mt-0.5"><span class="text-brand text-xs font-black">✔</span></div>
+                   <div>
+                       <h4 class="font-bold text-gray-900 text-[15px] mb-1">Inquebráveis e Leves</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">A peça final fica incrivelmente leve para a orelha, não encolhe e não quebra se cair no chão. Um acessório para a vida toda.</p>
+                   </div>
+               </div>
+           </div>
+       </div>
+
+       <!-- TUDO O QUE VOCÊ VAI RECEBER -->
+       <div class="w-full flex flex-col px-5 pt-12 pb-12 fade-up bg-white text-left">
+           <p class="text-brand text-[11px] font-black uppercase tracking-widest mb-2 text-center">ENTREGA DIGITAL IMEDIATA</p>
+           <h2 class="text-2xl font-black leading-tight text-gray-900 mb-8 text-center px-4">Tudo o que você desbloqueia no <span class="text-brand italic">Acesso Online:</span></h2>
+           
+           <div class="space-y-6">
+               <div class="flex gap-4 items-start border-b border-gray-50 pb-4">
+                   <div class="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0 border border-rose-100 text-brand text-xl">🎬</div>
+                   <div>
+                       <h4 class="font-bold text-gray-900 text-[15px] mb-0.5">Vídeo Aulas Passo a Passo</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Do básico ao acabamento perfeito. Aulas práticas em HD focadas em execução rápida e profissional.</p>
+                   </div>
+               </div>
+
+               <div class="flex gap-4 items-start border-b border-gray-50 pb-4">
+                   <div class="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0 border border-rose-100 text-brand text-xl">📕</div>
+                   <div>
+                       <h4 class="font-bold text-gray-900 text-[15px] mb-0.5">Manual de Cores & Misturas (PDF)</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Um guia visual com as "receitas" para criar as cores mais vendidas do momento (Terracota, Sálvia, Mostarda).</p>
+                   </div>
+               </div>
+
+               <div class="flex gap-4 items-start border-b border-gray-50 pb-4">
+                   <div class="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0 border border-rose-100 text-brand text-xl">💰</div>
+                   <div>
+                       <h4 class="font-bold text-gray-900 text-[15px] mb-0.5">Dashboard de Lucro Automático</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Ferramenta digital para você inserir o valor da massa e saber o lucro real de cada brinco produzido.</p>
+                   </div>
+               </div>
+
+               <div class="flex gap-4 items-start">
+                   <div class="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center shrink-0 border border-rose-100 text-brand text-xl">📱</div>
+                   <div>
+                       <h4 class="font-bold text-gray-900 text-[15px] mb-0.5">Estratégia "Caixa Rápido" (Whats)</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Roteiro de abordagem e posts prontos para você esgotar seu estoque pelo WhatsApp.</p>
+                   </div>
+               </div>
+           </div>
+       </div>
+
+       <!-- BLOCO: A JORNADA DA MASSA AO LUCRO -->
+       <div class="w-full flex flex-col items-center px-5 pt-12 pb-12 fade-up bg-[#fdfaf6] border-t border-b border-orange-100/50">
+           <p class="text-brand text-[11px] font-black uppercase tracking-[0.2em] mb-4 text-center italic">COMO FUNCIONA O PROCESSO</p>
+           <h2 class="text-2xl font-black leading-tight text-gray-900 mb-10 text-center px-4 italic underline underline-offset-8 decoration-brand/20">A Jornada da <span class="text-brand">Massa ao Lucro:</span></h2>
+           
+           <div class="w-full space-y-10 relative">
+               <div class="absolute left-[20px] top-6 bottom-6 w-0.5 bg-brand/10 z-0"></div>
+
+               <div class="flex gap-5 items-start relative z-10">
+                   <div class="w-10 h-10 rounded-full bg-brand flex items-center justify-center font-black text-white shrink-0 shadow-md border-4 border-white">1</div>
+                   <div class="text-left">
+                       <h4 class="font-bold text-gray-900 text-[15px] uppercase italic tracking-tighter">Preparação & Cor</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Misture cores básicas para criar paletas exclusivas que valorizam a sua marca própria.</p>
+                   </div>
+               </div>
+
+               <div class="flex gap-5 items-start relative z-10">
+                   <div class="w-10 h-10 rounded-full bg-brand flex items-center justify-center font-black text-white shrink-0 shadow-md border-4 border-white">2</div>
+                   <div class="text-left">
+                       <h4 class="font-bold text-gray-900 text-[15px] uppercase italic tracking-tighter">Modelagem & Textura</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Técnicas manuais para dar texturas profissionais (como o mármore) usando o que você já tem em casa.</p>
+                   </div>
+               </div>
+
+               <div class="flex gap-5 items-start relative z-10">
+                   <div class="w-10 h-10 rounded-full bg-brand flex items-center justify-center font-black text-white shrink-0 shadow-md border-4 border-white">3</div>
+                   <div class="text-left">
+                       <h4 class="font-bold text-gray-900 text-[15px] uppercase italic tracking-tighter">Corte de Precisão</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Como obter formatos geométricos perfeitos sem deixar rebarbas ou marcas de dedo.</p>
+                   </div>
+               </div>
+
+               <div class="flex gap-5 items-start relative z-10">
+                   <div class="w-10 h-10 rounded-full bg-brand flex items-center justify-center font-black text-white shrink-0 shadow-md border-4 border-white">4</div>
+                   <div class="text-left">
+                       <h4 class="font-bold text-gray-900 text-[15px] uppercase italic tracking-tighter">Cura Rápida (30 Minutos)</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">A técnica correta para assar a cerâmica plástica no forno comum da sua cozinha e ter as peças prontas no mesmo dia.</p>
+                   </div>
+               </div>
+
+               <div class="flex gap-5 items-start relative z-10">
+                   <div class="w-10 h-10 rounded-full bg-brand flex items-center justify-center font-black text-white shrink-0 shadow-md border-4 border-white">5</div>
+                   <div class="text-left">
+                       <h4 class="font-bold text-gray-900 text-[15px] uppercase italic tracking-tighter">Acabamento Fino</h4>
+                       <p class="text-[13px] text-gray-600 leading-relaxed">Montagem das argolas e aplicação de brilho para um resultado artesanal premium, super flexível e resistente.</p>
+                   </div>
+               </div>
+           </div>
+       </div>
+
+       <!-- SHOWCASE / VITRINE -->
+       <div class="w-full flex flex-col items-center px-5 pt-12 pb-10 fade-up text-center">
+           <h2 class="text-[18px] md:text-[20px] font-black text-gray-900 uppercase tracking-tighter mb-0.5">VOCÊ VAI APRENDER A FAZER</h2>
+           <h3 class="text-[22px] md:text-[24px] font-black text-brand italic uppercase tracking-tighter mb-6">ESSAS OBRAS DE ARTE:</h3>
+           <div class="grid grid-cols-2 gap-3 w-full">
+               <img src="imagem2.webp" loading="lazy" class="w-full aspect-square object-cover rounded-2xl border border-gray-100 shadow-sm" alt="Modelo 1">
+               <img src="imagem3.webp" loading="lazy" class="w-full aspect-square object-cover rounded-2xl border border-gray-100 shadow-sm" alt="Modelo 2">
+               <img src="imagem4.webp" loading="lazy" class="w-full aspect-square object-cover rounded-2xl border border-gray-100 shadow-sm" alt="Modelo 3">
+               <img src="imagem5.webp" loading="lazy" class="w-full aspect-square object-cover rounded-2xl border border-gray-100 shadow-sm" alt="Modelo 4">
+               <img src="imagem6.webp" loading="lazy" class="w-full aspect-square object-cover rounded-2xl border border-gray-100 shadow-sm" alt="Modelo 5">
+               <img src="imagem7.webp" loading="lazy" class="w-full aspect-square object-cover rounded-2xl border border-gray-100 shadow-sm" alt="Modelo 6">
+           </div>
+       </div>
+
+       <!-- O QUE VAI RECEBER (BÔNUS) -->
+       <div class="w-full flex flex-col px-5 pt-8 pb-10 fade-up bg-gray-50 border-t border-gray-100">
+           <div class="w-full text-center mb-6">
+               <span class="inline-block bg-red-100 text-red-600 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-3">O GRANDE DIFERENCIAL</span>
+               <h3 class="text-xl md:text-2xl font-black text-gray-900 leading-tight">Levando o Curso Completo hoje, você desbloqueia o <span class="text-brand">Arsenal Secreto:</span></h3>
+           </div>
+
+           <div class="grid grid-cols-1 gap-4 w-full">
+               <div class="bg-white rounded-[1.25rem] p-6 shadow-sm border border-gray-200 text-left relative">
+                   <img src="mockup-bonus1.webp" alt="Pack Canva" class="w-full h-32 object-cover rounded-xl mb-4 border border-gray-100">
+                   <div class="inline-block bg-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-3 shadow-sm">Bônus #01</div>
+                   <h4 class="font-black text-[16px] text-gray-900 mb-2 leading-tight">Pack Canva de Embalagens (Digital)</h4>
+                   <p class="text-[13px] text-gray-600 leading-relaxed">Templates profissionais prontos para imprimir em casa e agregar valor imediato às suas peças.</p>
+               </div>
+               <div class="bg-white rounded-[1.25rem] p-6 shadow-sm border border-gray-200 text-left relative">
+                   <img src="mockup-bonus2.webp" alt="WhatsApp" class="w-full h-32 object-cover rounded-xl mb-4 border border-gray-100">
+                   <div class="inline-block bg-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-3 shadow-sm">Bônus #02</div>
+                   <h4 class="font-black text-[16px] text-gray-900 mb-2 leading-tight">A Caixa Preta dos Fornecedores</h4>
+                   <p class="text-[13px] text-gray-600 leading-relaxed">Lista digital com links diretos para comprar argolas e a cerâmica plástica (Polymer Clay) pelos melhores preços.</p>
+               </div>
+               <div class="bg-white rounded-[1.25rem] p-6 shadow-sm border border-gray-200 text-left relative">
+                   <img src="mockup-bonus3.webp" alt="Calculadora" class="w-full h-32 object-cover rounded-xl mb-4 border border-gray-100">
+                   <div class="inline-block bg-gray-900 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest mb-3 shadow-sm">Bônus #03</div>
+                   <h4 class="font-black text-[16px] text-gray-900 mb-2 leading-tight">Calculadora de Lucro (Dashboard)</h4>
+                   <p class="text-[13px] text-gray-600 leading-relaxed">Ferramenta automática para você saber o preço exato de venda e o seu lucro real.</p>
+               </div>
+           </div>
+           
+           <button onclick="document.getElementById('checkoutSection').scrollIntoView({behavior: 'smooth'})" class="w-full py-4 px-6 btn-primary font-black text-[1.05rem] rounded-xl uppercase tracking-wider mt-8 shadow-lg">QUERO GARANTIR TODOS OS BÔNUS</button>
+       </div>
+
+       <!-- DEPOIMENTOS -->
+       <div class="w-full flex flex-col items-center px-5 pt-8 pb-10 fade-up border-t border-gray-100 text-left">
+           <h2 class="text-2xl font-black text-gray-900 mb-6 uppercase italic tracking-tighter text-center">Quem comprou, aprovou!</h2>
+           <div class="w-full space-y-4 text-left px-1">
+               <div class="bg-white text-gray-800 p-4 rounded-xl shadow-md border border-gray-100 flex gap-3 transform -rotate-1 relative">
+                   <div class="w-10 h-10 rounded-full bg-[#d81b60] text-white flex items-center justify-center font-black shrink-0 text-sm shadow-sm">P</div>
+                   <div class="flex-1 pb-3">
+                       <h4 class="font-black text-[13px] text-[#3b5998]">Patrícia Gomes</h4>
+                       <p class="text-[12px] leading-snug mt-1">Gente, a saída aqui no bairro tá surreal! 😱 Fiz 30 pares no sábado e já acabou tudo. O lucro é real!</p>
+                       <div class="flex items-center gap-3 mt-2 text-[10px] text-gray-500 font-bold"><span>Curtir</span> • <span>Responder</span> • <span>2 h</span></div>
+                       <div class="absolute bottom-2 right-3 bg-white rounded-full shadow-sm px-1.5 py-0.5 text-[10px] font-bold text-gray-600">👍 48</div>
+                   </div>
+               </div>
+               <div class="bg-white text-gray-800 p-4 rounded-xl shadow-md border border-gray-100 flex gap-3 transform rotate-1 relative">
+                   <div class="w-10 h-10 rounded-full bg-[#3b82f6] text-white flex items-center justify-center font-black shrink-0 text-sm">L</div>
+                   <div class="flex-1 pb-3">
+                       <h4 class="font-black text-[13px] text-[#3b5998]">Luciana M.</h4>
+                       <p class="text-[12px] leading-snug mt-1">Eles são super levinhos e não quebram mesmo caindo! Minhas clientes amaram e já encomendaram. 😍</p>
+                       <div class="flex items-center gap-3 mt-2 text-[10px] text-gray-500 font-bold"><span>Curtir</span> • <span>Responder</span> • <span>4 h</span></div>
+                   </div>
+               </div>
+               <div class="bg-white text-gray-800 p-4 rounded-xl shadow-md border border-gray-100 flex gap-3 transform -rotate-1 relative">
+                   <div class="w-10 h-10 rounded-full bg-[#10b981] text-white flex items-center justify-center font-black shrink-0 text-sm">A</div>
+                   <div class="flex-1 pb-3">
+                       <h4 class="font-black text-[13px] text-[#3b5998]">Ana Clara</h4>
+                       <p class="text-[12px] leading-snug mt-1">Achava que precisava de forno industrial caríssimo kkk 😂 Assar no forno normal de casa em 30 min salvou minha vida, vendo tudo no mesmo dia!</p>
+                       <div class="flex items-center gap-3 mt-2 text-[10px] text-gray-500 font-bold"><span>Curtir</span> • <span>Responder</span> • <span>5 h</span></div>
+                   </div>
+               </div>
+           </div>
+       </div>
+
+       <!-- OFERTA FINAL E MATEMÁTICA DO LUCRO -->
+       <div id="checkoutSection" class="w-full flex flex-col px-5 pt-10 pb-12 fade-up border-t border-gray-200 bg-white text-center">
+           <h2 class="text-[2.2rem] font-black leading-tight text-gray-900 mb-6 italic">A <span class="text-brand">Matemática</span> do Lucro</h2>
+           
+           <div class="w-full bg-white rounded-2xl p-4 border border-gray-100 shadow-lg mb-6 relative overflow-hidden text-left">
+               <div class="absolute top-0 left-0 w-full bg-gray-900 text-white text-[10px] font-black text-center py-1 uppercase tracking-widest">A Prova Real da Margem</div>
+               <div class="flex items-center justify-between mt-6 gap-2">
+                   <div class="flex flex-col items-center w-[45%]">
+                       <img src="custo-massa.webp" alt="Custo" class="w-full aspect-square object-cover rounded-xl border border-gray-200 shadow-sm mb-2 transform hover:scale-105 transition-transform">
+                       <p class="text-[10px] text-gray-500 font-bold uppercase text-center leading-tight">1 Bloco Cerâmica</p>
+                       <p class="text-[15px] font-black text-red-500">Custo: R$ 24,90</p>
+                   </div>
+                   <div class="flex flex-col items-center shrink-0">
+                       <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-1"><span class="text-lg text-green-600 font-black animate-pulse">➔</span></div>
+                       <span class="text-[9px] font-bold text-gray-400 uppercase leading-none text-center">Vira</span>
+                   </div>
+                   <div class="flex flex-col items-center w-[45%]">
+                       <img src="producao-pronta.webp" alt="Venda" class="w-full aspect-square object-cover rounded-xl border border-green-200 shadow-sm mb-2 transform hover:scale-105 transition-transform">
+                       <p class="text-[10px] text-gray-500 font-bold uppercase text-center leading-tight">Vários Pares</p>
+                       <p class="text-[15px] font-black text-green-600">Vende por R$ 39,90</p>
+                   </div>
+               </div>
+           </div>
+
+           <p class="text-[14px] font-medium mb-6 text-gray-700 leading-relaxed px-2">Com a cerâmica plástica, você gasta pouco mais de 1 real por brinco e vende como um acessório artesanal premium. O lucro é brutal:</p>
+
+           <div class="w-full card-light p-5 mb-8 relative text-left">
+               <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white font-black px-4 py-1 rounded-full text-[10px] uppercase tracking-widest shadow-sm">LUCRO EXTREMO</div>
+               <div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-3 mt-2">
+                   <span class="text-gray-600 font-medium text-[13px]">Custo Médio (Massa + Ferragem):</span>
+                   <span class="font-bold text-gray-900 text-[14px]">~ R$ 1,50</span>
+               </div>
+               <div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-3">
+                   <span class="text-gray-600 font-medium text-[13px]">Preço de Venda Médio:</span>
+                   <span class="font-bold text-gray-900 text-[14px]">R$ 39,90</span>
+               </div>
+               <div class="flex justify-between items-center pt-2">
+                   <span class="font-black text-gray-900 text-[16px] uppercase italic">Lucro Limpo:</span>
+                   <span class="font-black text-brand text-[20px]">R$ 38,40 <span class="text-[10px] text-gray-400 italic lowercase">/par</span></span>
+               </div>
+           </div>
+
+           <p class="text-brand text-[11px] font-black uppercase tracking-widest mb-2 mt-4 text-center">GARANTA SEU ACESSO E COMECE AGORA</p>
+
+           <!-- PLANO VIP (R$ 37,00) -->
+           <div class="bg-white border-[4px] border-[#10b981] rounded-[2rem] p-6 mb-6 relative shadow-2xl text-gray-900 text-left mt-2 text-center">
+               <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#10b981] text-white font-black px-6 py-1.5 rounded-full text-[12px] uppercase shadow-md tracking-wider">OFERTA ESPECIAL</div>
+               
+               <h4 class="text-[18px] font-black text-center mt-3 uppercase italic tracking-tighter">CURSO COMPLETO (VÍDEO + PDF + BÔNUS)</h4>
+               
+               <img src="mockup-vip.webp" alt="Curso Completo Digital" class="w-[70%] h-auto drop-shadow-xl mx-auto my-4 rounded-2xl hover:scale-105 transition-transform duration-300">
+
+               <div class="space-y-3 my-6 font-bold text-gray-700 text-[13px] bg-green-50/50 p-4 rounded-xl border border-green-100 text-left">
+                   <p class="flex items-start gap-2"><span class="text-[#10b981] text-lg leading-none">✔</span> <span>Vídeo Aulas de Modelagem e Cozimento</span></p>
+                   <p class="flex items-start gap-2"><span class="text-[#10b981] text-lg leading-none">✔</span> <span>Manual Guia de Cores Exclusivas (PDF)</span></p>
+                   <p class="flex items-start gap-2"><span class="text-[#10b981] text-lg leading-none">✔</span> <span>Acesso Vitalício via Celular</span></p>
+                   <p class="flex items-start gap-2"><span class="text-[#10b981] text-lg leading-none">✔</span> <span>Todos os Bônus e Fornecedores Inclusos</span></p>
+                   <p class="flex items-start gap-2"><span class="text-[#10b981] text-lg leading-none">✔</span> <span>Suporte para Dúvidas pelo Celular</span></p>
+               </div>
+               
+               <div class="text-center mb-6">
+                   <p class="text-xs text-gray-400 line-through font-bold mb-1">de R$ 197,00 por</p>
+                   <div class="flex items-center justify-center gap-1">
+                       <span class="text-3xl font-black text-gray-900 self-start mt-1">R$</span>
+                       <span class="text-[4rem] font-black text-gray-900 leading-none tracking-tighter">37<span class="text-4xl">,00</span></span>
+                   </div>
+               </div>
+               
+               <!-- LINK ATUALIZADO: R$ 37,00 -->
+               <a href="https://confeiteira-mari.pay.yampi.com.br/r/7H4XDJMZMM" class="block w-full py-5 bg-[#10b981] text-white font-black rounded-2xl text-center uppercase shadow-lg text-[1.15rem] italic hover:bg-[#059669] transition-colors">COMPRAR CURSO COMPLETO</a>
+               <p class="text-[10px] text-center text-gray-500 mt-3 font-bold uppercase italic">Acesso Online Imediato via Celular.</p>
+           </div>
+
+           <div class="flex flex-col items-center justify-center text-center p-5 bg-green-50 border border-green-100 rounded-xl w-full mt-4">
+               <div class="text-green-500 text-3xl mb-2">🛡️</div>
+               <h4 class="font-black text-gray-900 text-[14px] mb-1">Garantia Incondicional de 7 Dias</h4>
+               <p class="text-[12px] text-gray-600 leading-snug">Receba o seu acesso online agora. Se não gostar, devolvemos 100% do seu dinheiro. Sem burocracia.</p>
+           </div>
+       </div>
+
+       <!-- FAQ -->
+       <div class="w-full flex flex-col px-5 pt-8 pb-10 fade-up bg-gray-50 border-t border-gray-200 text-left">
+           <h2 class="text-xl font-black leading-tight text-gray-900 mb-6 text-center italic uppercase tracking-tighter">Dúvidas Frequentes</h2>
+           <div class="space-y-3 w-full">
+               <details class="group card-light p-4 cursor-pointer [&_summary::-webkit-details-marker]:hidden bg-white">
+                   <summary class="flex justify-between items-center font-bold text-[13px] text-gray-900 list-none">
+                       <span>Preciso de um forno industrial?</span>
+                       <span class="transition group-open:rotate-180 text-brand">▼</span>
+                   </summary>
+                   <p class="text-[12px] text-gray-600 mt-3 leading-snug border-t border-gray-100 pt-3 italic text-left">Não! A Cerâmica Plástica (Polymer Clay) assa em apenas 30 minutos na temperatura de 130°C no forno a gás ou elétrico comum que você já tem na sua cozinha.</p>
+               </details>
+               <details class="group card-light p-4 cursor-pointer [&_summary::-webkit-details-marker]:hidden bg-white">
+                   <summary class="flex justify-between items-center font-bold text-[13px] text-gray-900 list-none">
+                       <span>Como funciona a entrega do material?</span>
+                       <span class="transition group-open:rotate-180 text-brand">▼</span>
+                   </summary>
+                   <p class="text-[12px] text-gray-600 mt-3 leading-snug border-t border-gray-100 pt-3 italic text-left">Este é um curso 100% online. Assim que o pagamento for aprovado, você recebe o acesso à plataforma digital no seu e-mail e WhatsApp para começar hoje mesmo pelo celular.</p>
+               </details>
+               <details class="group card-light p-4 cursor-pointer [&_summary::-webkit-details-marker]:hidden bg-white">
+                   <summary class="flex justify-between items-center font-bold text-[13px] text-gray-900 list-none">
+                       <span>Nunca fiz artesanato, vou conseguir?</span>
+                       <span class="transition group-open:rotate-180 text-brand">▼</span>
+                   </summary>
+                   <p class="text-[12px] text-gray-600 mt-3 leading-snug border-t border-gray-100 pt-3 text-left">Sim! O curso foi desenhado para iniciantes. Com as nossas técnicas explicadas em vídeo, você só precisa seguir o passo a passo para criar suas peças.</p>
+               </details>
+           </div>
+       </div>
+
+       <!-- FOOTER -->
+       <div class="w-full flex flex-col items-center bg-white text-gray-900 pt-12 pb-8 px-6 border-t border-gray-200 text-center">
+           <div class="p-8 mb-10 text-center border border-gray-100 w-full bg-gray-50 rounded-2xl">
+               <h4 class="text-brand font-serif-italic text-3xl mb-4 italic leading-none text-center">Mariana -</h4>
+               <p class="text-[14px] leading-relaxed font-bold text-gray-700 px-2 mb-6 italic text-center">Criadora do Curso Brincos de Cerâmica Plástica. Minha missão é ensinar você a lucrar trabalhando 100% de casa. ✨</p>
+           </div>
+           <div class="text-center w-full pb-8">
+               <p class="text-[10px] text-gray-400 font-medium italic">© 2026 Curso Brincos de Cerâmica Plástica. Produto 100% Digital. Todos os direitos reservados.</p>
+           </div>
+       </div>
+
+   </div>
+
+   <script>
+       document.addEventListener('DOMContentLoaded', () => { 
+           const observer = new IntersectionObserver((entries) => {
+               entries.forEach(entry => {
+                   if (entry.isIntersecting) {
+                       entry.target.classList.add('is-visible');
+                       observer.unobserve(entry.target); 
+                   }
+               });
+           }, { threshold: 0.10 });
+
+           document.querySelectorAll('.fade-up').forEach(el => {
+               observer.observe(el);
+           });
+       });
+   </script>
+</body>
+</html>
