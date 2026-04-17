@@ -100,10 +100,19 @@
   <script>
   (function () {
     "use strict";
+
     var API_BASE = "https://brain-saas.vercel.app";
     var PIXEL_PUBLIC_KEY = "px_bfv0LWZBjF7oQBDo";
+    var QUIZ_ID = "quiz_brincos_01";
+    var TOTAL_STEPS = 11;
+    var START_SEL = "#btn-iniciar-quiz";
+    var FINAL_CTA_SEL = "#btn-checkout-final";
     var prefix = ["https://lastlink.com","https://kirvano.com","https://pay.kirvano.com","https://checkout.kirvano.com","pay.yampi.com.br"];
-    var TRACK_URL = API_BASE.replace(/\/$/, "") + "/api/track";
+    var TRACK_URL = API_BASE + "/api/track";
+    var QUIZ_TRACK_URL = API_BASE + "/api/quiz/track";
+
+    var firedSteps = {};
+    var firedMeta = {};
 
     function getCookie(name) {
       var match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
@@ -113,7 +122,9 @@
     function setCookie(name, value, days) {
       var d = new Date();
       d.setTime(d.getTime() + (days || 365) * 24 * 60 * 60 * 1000);
-      document.cookie = name + "=" + encodeURIComponent(value) + "; path=/; expires=" + d.toUTCString() + "; SameSite=Lax";
+      document.cookie =
+        name + "=" + encodeURIComponent(value) +
+        "; path=/; expires=" + d.toUTCString() + "; SameSite=Lax";
     }
 
     function uuid() {
@@ -127,12 +138,19 @@
 
     function getOrCreateSid() {
       var sid = getCookie("mcapi_sid");
-      if (!sid) { sid = uuid(); setCookie("mcapi_sid", sid, 365); }
+      if (!sid) {
+        sid = uuid();
+        setCookie("mcapi_sid", sid, 365);
+      }
       return sid;
     }
 
     function getQueryParam(name) {
-      try { return new URL(location.href).searchParams.get(name); } catch (e) { return null; }
+      try {
+        return new URL(location.href).searchParams.get(name);
+      } catch (e) {
+        return null;
+      }
     }
 
     function ensureFbp() {
@@ -201,7 +219,7 @@
       }
     }
 
-    function sendEvent(payload) {
+    function sendTrack(payload) {
       try {
         if (navigator.sendBeacon) {
           var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
@@ -209,13 +227,65 @@
           return;
         }
       } catch (e) {}
-      fetch(TRACK_URL, { method: "POST", mode: "cors", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), keepalive: true }).catch(function(){});
+      fetch(TRACK_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(function () {});
+    }
+
+    function sendQuizEvent(name, stepIndex) {
+      var sid = getOrCreateSid();
+      var utm = buildUtms();
+      var payload = {
+        pixel_id: PIXEL_PUBLIC_KEY,
+        quiz_id: QUIZ_ID,
+        event: name,
+        step_index: stepIndex == null ? null : stepIndex,
+        sid: sid,
+        url: location.href,
+        referrer: typeof document !== "undefined" ? document.referrer || "" : "",
+        utm: utm,
+        fbp: ensureFbp(),
+        fbc: ensureFbc()
+      };
+      try {
+        if (navigator.sendBeacon) {
+          var blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+          navigator.sendBeacon(QUIZ_TRACK_URL, blob);
+          return;
+        }
+      } catch (e) {}
+      fetch(QUIZ_TRACK_URL, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch(function () {});
+    }
+
+    function fireQuizOnce(key, name, stepIndex) {
+      if (firedMeta[key]) return;
+      firedMeta[key] = true;
+      sendQuizEvent(name, stepIndex);
     }
 
     function postEvent(eventName) {
       var sid = getOrCreateSid();
-      var payload = { pixel_id: PIXEL_PUBLIC_KEY, sid: sid, event: eventName, event_id: eventName + "_" + sid + "_" + Date.now(), url: location.href, utm: buildUtms(), fbp: ensureFbp(), fbc: ensureFbc() };
-      sendEvent(payload);
+      var payload = {
+        pixel_id: PIXEL_PUBLIC_KEY,
+        sid: sid,
+        event: eventName,
+        event_id: eventName + "_" + sid + "_" + Date.now(),
+        url: location.href,
+        utm: buildUtms(),
+        fbp: ensureFbp(),
+        fbc: ensureFbc()
+      };
+      sendTrack(payload);
     }
 
     function updateLinks() {
@@ -231,14 +301,77 @@
       }
     }
 
+    function observeQuizSteps() {
+      if (!window.IntersectionObserver) return;
+      var obs = new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          var en = entries[i];
+          if (!en.isIntersecting || en.intersectionRatio < 0.25) continue;
+          var el = en.target;
+          var raw = el.getAttribute("data-quiz-step");
+          if (!raw) continue;
+          var step = parseInt(raw, 10);
+          if (!step || step < 1 || step > TOTAL_STEPS) continue;
+          var k = "step-" + step;
+          if (firedSteps[k]) continue;
+          firedSteps[k] = true;
+          sendQuizEvent("quiz_step_viewed", step);
+          if (step === TOTAL_STEPS) {
+            fireQuizOnce("last-step", "quiz_last_step_viewed", step);
+          }
+        }
+      }, { threshold: [0, 0.25, 0.5, 1] });
+
+      for (var s = 1; s <= TOTAL_STEPS; s++) {
+        var nodes = document.querySelectorAll('[data-quiz-step="' + s + '"]');
+        for (var n = 0; n < nodes.length; n++) obs.observe(nodes[n]);
+      }
+    }
+
+    function bindStartAndCta() {
+      if (START_SEL) {
+        try {
+          var startEl = document.querySelector(START_SEL);
+          if (startEl) {
+            startEl.addEventListener("click", function () {
+              fireQuizOnce("started", "quiz_started", null);
+            }, true);
+          }
+        } catch (e) {}
+      }
+      if (FINAL_CTA_SEL) {
+        try {
+          var cta = document.querySelector(FINAL_CTA_SEL);
+          if (cta) {
+            cta.addEventListener("click", function () {
+              fireQuizOnce("cta", "quiz_cta_clicked", null);
+              fireQuizOnce("finished", "quiz_finished", null);
+            }, true);
+          }
+        } catch (e) {}
+      }
+    }
+
     function init() {
-      ensureFbp(); updateLinks(); postEvent("PageView");
+      ensureFbp();
+      updateLinks();
+      postEvent("PageView");
+      sendQuizEvent("quiz_page_view", null);
+
       var tries = 0;
-      var t = setInterval(function () { tries++; updateLinks(); if (tries >= 10) clearInterval(t); }, 1000);
+      var t = setInterval(function () {
+        tries++;
+        updateLinks();
+        if (tries >= 10) clearInterval(t);
+      }, 1000);
+
       if (window.MutationObserver) {
         var mo = new MutationObserver(function () { updateLinks(); });
         mo.observe(document.documentElement, { childList: true, subtree: true });
       }
+
+      observeQuizSteps();
+      bindStartAndCta();
     }
 
     document.addEventListener("click", function (e) {
@@ -254,7 +387,11 @@
       postEvent("InitiateCheckout");
     }, true);
 
-    if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", init); } else { init(); }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
   })();
   </script>
 </head>
@@ -263,7 +400,7 @@
   <div class="w-full max-w-[420px] min-h-[100dvh] flex flex-col items-center px-6 pt-4 pb-8">
 
       <!-- VIEW 1: LANDING PAGE -->
-      <div id="landingPage" class="w-full flex flex-col items-center animate-fade">
+      <div id="landingPage" data-quiz-step="1" class="w-full flex flex-col items-center animate-fade">
           <div class="w-full pt-10 pb-2 text-center z-30 relative shrink-0">
               <p class="text-[11px] font-black tracking-[0.2em] uppercase mb-4 text-gray-400">CURSO COMPLETO</p>
               
@@ -286,7 +423,7 @@
                   Venda <span class="text-highlight font-black">todo dia</span> no WhatsApp com um mostruário inquebrável: <br>
                   <strong class="font-black text-[16px] text-gray-900">15 Modelos Campeões de Vendas</strong>!
               </p>
-              <button type="button" onclick="showQuiz()" class="animate-pulse-cta w-full py-4 px-6 btn-green text-[1.1rem] font-black rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl">
+              <button id="btn-iniciar-quiz" type="button" onclick="showQuiz()" class="animate-pulse-cta w-full py-4 px-6 btn-green text-[1.1rem] font-black rounded-2xl uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl">
                   QUERO COMEÇAR AGORA
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -296,7 +433,7 @@
       </div>
 
       <!-- VIEW 2: QUIZ P1 -->
-      <div id="quizPage" class="hidden w-full flex-col items-center justify-center animate-fade">
+      <div id="quizPage" data-quiz-step="2" class="hidden w-full flex-col items-center justify-center animate-fade">
           <div class="glass-card w-full p-8 text-center mb-8 relative z-30">
               <h2 class="text-2xl font-black text-gray-900 leading-tight mb-2">Você já trabalha com artesanato ou <span class="text-highlight">trabalhos manuais?</span></h2>
               <p class="text-gray-500 font-medium text-[14px]">Toque na sua resposta:</p>
@@ -310,7 +447,7 @@
       </div>
 
       <!-- VIEW 3: QUIZ P2 (NOVA: Foco na Rapidez da Cerâmica Plástica) -->
-      <div id="quizCursoPage" class="hidden w-full flex-col items-center justify-center animate-fade">
+      <div id="quizCursoPage" data-quiz-step="3" class="hidden w-full flex-col items-center justify-center animate-fade">
           <div class="glass-card w-full p-8 text-center mb-8">
               <h2 class="text-2xl font-black text-gray-900 leading-tight">O que é mais importante para você em um <span class="text-highlight">novo negócio?</span></h2>
           </div>
@@ -322,7 +459,7 @@
       </div>
 
       <!-- VIEW 4: QUIZ P3 -->
-      <div id="quizTempoPage" class="hidden w-full flex-col items-center justify-center animate-fade">
+      <div id="quizTempoPage" data-quiz-step="4" class="hidden w-full flex-col items-center justify-center animate-fade">
           <div class="glass-card w-full p-8 text-center mb-8">
               <h2 class="text-2xl font-black text-gray-900 leading-tight">Quanto tempo por dia você tem para <span class="text-highlight">se dedicar?</span></h2>
           </div>
@@ -334,7 +471,7 @@
       </div>
 
       <!-- VIEW 5: QUIZ P4 (NOVA: Quebra de Objeções) -->
-      <div id="quizDoresPage" class="hidden w-full flex-col items-center justify-center animate-fade">
+      <div id="quizDoresPage" data-quiz-step="5" class="hidden w-full flex-col items-center justify-center animate-fade">
           <div class="glass-card w-full p-8 text-center mb-8">
               <h2 class="text-2xl font-black text-gray-900 leading-tight">Qual o seu <span class="text-highlight">MAIOR medo</span> ao tentar criar peças manuais?</h2>
           </div>
@@ -346,7 +483,7 @@
       </div>
 
       <!-- VIEW 6: QUIZ P5 (ÚLTIMA) -->
-      <div id="quizObjetivoFinalPage" class="hidden w-full flex-col items-center justify-center animate-fade">
+      <div id="quizObjetivoFinalPage" data-quiz-step="6" class="hidden w-full flex-col items-center justify-center animate-fade">
           <div class="glass-card w-full p-8 text-center mb-8">
               <h2 class="text-2xl font-black text-gray-900 leading-tight">Última: O que você mais espera <span class="text-highlight">das próximas semanas?</span></h2>
           </div>
@@ -357,14 +494,14 @@
           </div>
       </div>
 
-      <!-- VIEW 8: DIFERENCIAIS DO MÉTODO -->
-      <div id="finalOfferPage" class="hidden w-full flex-col items-center pt-4 pb-8 animate-fade">
+      <!-- VIEW 7: DIFERENCIAIS DO MÉTODO -->
+      <div id="finalOfferPage" data-quiz-step="7" class="hidden w-full flex-col items-center pt-4 pb-8 animate-fade">
           <div class="glass-card p-6 text-center w-full z-30 relative shrink-0 mb-8 border-t-4 border-t-[#e11d48]">
               <h2 class="text-2xl font-black leading-tight text-gray-900 uppercase italic tracking-tighter">
                   Por que a Cerâmica Plástica <br><span class="text-highlight text-3xl">Vende Todo Dia:</span>
               </h2>
           </div>
-         
+          
           <div class="w-full space-y-4 z-20">
               <!-- Feature 1: Quebra de Objeção Principal -->
               <div class="bg-gradient-to-r from-[#10b981] to-[#059669] p-1 rounded-2xl shadow-xl transform -rotate-1">
@@ -430,12 +567,12 @@
           </div>
       </div>
 
-      <!-- VIEW 9: PÁGINA DE LUCRO -->
-      <div id="finalPage" class="hidden w-full flex-col items-center pt-4 pb-8 animate-fade text-center">
+      <!-- VIEW 8: PÁGINA DE LUCRO -->
+      <div id="finalPage" data-quiz-step="8" class="hidden w-full flex-col items-center pt-4 pb-8 animate-fade text-center">
           <div class="glass-card p-6 text-center w-full z-30 relative shrink-0 mb-6 border-b-4 border-b-[#e11d48]">
               <h2 class="text-[2.5rem] font-black leading-tight text-gray-900 italic">A <span class="text-highlight">Matemática</span> do Lucro</h2>
           </div>
-         
+          
           <div class="w-full text-center z-30 mt-4 flex flex-col items-center shrink-0">
 
               <p class="text-[15px] font-bold mb-6 leading-relaxed text-gray-700 px-4 text-center">
@@ -445,7 +582,7 @@
               <!-- Calculadora Visual -->
               <div class="w-full bg-white/90 backdrop-blur-md rounded-3xl p-6 border border-white mb-8 shadow-xl relative">
                   <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-green-500 text-white font-black px-5 py-1.5 rounded-full text-[11px] uppercase tracking-widest shadow-md">LUCRO GARANTIDO</div>
-                 
+                  
                   <div class="flex justify-between items-center border-b border-gray-200 pb-3 mb-3 mt-2">
                       <span class="text-gray-600 font-medium text-[15px]">Custo Médio (Massa + Ferragem):</span>
                       <span class="font-bold text-gray-900 text-[16px]">~ R$ 1,50</span>
@@ -475,12 +612,12 @@
           </div>
       </div>
 
-      <!-- VIEW 10: DEPOIMENTOS -->
-      <div id="testimonialsPage" class="hidden w-full flex-col items-center pt-4 pb-8 animate-fade text-center">
+      <!-- VIEW 9: DEPOIMENTOS -->
+      <div id="testimonialsPage" data-quiz-step="9" class="hidden w-full flex-col items-center pt-4 pb-8 animate-fade text-center">
           <div class="glass-card p-6 text-center w-full shrink-0 mb-8"><h2 class="text-2xl font-black mb-1 text-gray-900 uppercase italic tracking-tighter text-center">Quem comprou, aprovou!</h2></div>
         
           <div class="w-full space-y-4 mt-8 mb-8 z-20 text-left px-2">
-             
+              
               <!-- Comentário 1 -->
               <div class="bg-white text-gray-800 p-4 rounded-xl shadow-md border border-gray-100 flex gap-3 transform -rotate-1 text-left relative">
                   <div class="w-10 h-10 rounded-full bg-[#d81b60] text-white flex items-center justify-center font-black flex-shrink-0 text-sm shadow-sm">P</div>
@@ -579,8 +716,8 @@
           <button onclick="showLoadingPage()" class="w-full py-5 px-6 btn-green text-[1.1rem] font-black rounded-xl uppercase tracking-wide shadow-xl">QUERO OS MESMOS RESULTADOS</button>
       </div>
 
-      <!-- VIEW 11: LOADING PROFISSIONAL -->
-      <div id="loadingPage" class="hidden w-full flex-col items-center justify-center min-h-[85dvh] animate-fade">
+      <!-- VIEW 10: LOADING PROFISSIONAL -->
+      <div id="loadingPage" data-quiz-step="10" class="hidden w-full flex-col items-center justify-center min-h-[85dvh] animate-fade">
           <div class="glass-card p-10 text-center w-full border-2 border-white">
               <div class="w-20 h-20 mx-auto mb-6 bg-white/80 rounded-full flex items-center justify-center border border-gray-200 shadow-md"><span class="text-4xl animate-pulse">✨</span></div>
               <h2 class="text-2xl font-black mb-8 text-gray-900 text-center leading-tight">Montando seu plano...</h2>
@@ -589,8 +726,8 @@
           </div>
       </div>
 
-      <!-- VIEW 12: CHECKOUT FINAL -->
-      <div id="finalCheckoutPage" class="hidden w-full flex-col animate-fade pb-10">
+      <!-- VIEW 11: CHECKOUT FINAL -->
+      <div id="finalCheckoutPage" data-quiz-step="11" class="hidden w-full flex-col animate-fade pb-10">
           <div class="bg-white rounded-[2rem] p-6 text-center w-full mb-6 shadow-sm border border-gray-100 text-center">
               <h2 class="text-2xl font-black text-gray-900 mb-2 leading-tight">Seu plano está pronto!<br><span class="text-highlight uppercase text-sm tracking-widest">Leia com ATENÇÃO</span></h2>
               <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center mx-auto my-4 shadow-md border-2 border-white">
@@ -601,9 +738,9 @@
 
           <div class="bg-white rounded-[2rem] p-6 mb-6 shadow-xl border border-gray-100 text-gray-900 text-left relative overflow-hidden">
               <div class="absolute top-0 right-0 bg-yellow-400 text-gray-900 text-[10px] font-black px-4 py-1.5 rounded-bl-xl uppercase tracking-widest">Acesso Imediato</div>
-             
+              
               <h3 class="text-[17px] font-black mb-5 leading-tight text-center">Tudo que você vai receber no<br>Método <span class="text-highlight">Brincos de Cerâmica Plástica:</span></h3>
-             
+              
               <ul class="space-y-3 text-[13px] font-bold text-gray-700">
                   <li class="flex gap-3 items-start"><span class="text-green-600 text-lg leading-none">✓</span> <span>Vídeo Aulas em Alta Resolução (Passo a passo prático)</span></li>
                   <li class="flex gap-3 items-start"><span class="text-green-600 text-lg leading-none">✓</span> <span>O Segredo da <span class="text-highlight">Modelagem Rápida</span> e Cura Perfeita no Forno</span></li>
@@ -615,7 +752,7 @@
                   <li class="flex gap-3 items-start"><span class="text-green-600 text-lg leading-none">✓</span> <span>Acesso Vitalício + Suporte VIP para dúvidas</span></li>
                   <li class="flex gap-3 items-start"><span class="text-green-600 text-lg leading-none">✓</span> <span>Lindo Certificado de Conclusão Oficial</span></li>
               </ul>
-             
+              
               <div class="mt-6 pt-5 border-t border-gray-100 text-center">
                   <p class="text-[13px] font-black text-gray-800 uppercase tracking-tighter italic">Transforme sua mesa em uma<br><span class="text-green-600 text-[16px]">Fábrica de Dinheiro hoje mesmo.</span></p>
               </div>
@@ -695,9 +832,9 @@
           <!-- PLANO VIP (R$ 37,00) -->
           <div class="bg-white border-[4px] border-[#10b981] rounded-[2rem] p-6 mb-6 relative shadow-xl text-gray-900 text-left transform hover:scale-[1.02] transition-transform duration-300">
               <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#10b981] text-white font-black px-6 py-1.5 rounded-full text-[12px] uppercase shadow-md tracking-wider">OFERTA ESPECIAL</div>
-             
+              
               <h4 class="text-[19px] font-black text-center mt-3 uppercase italic tracking-tighter text-gray-900">CURSO COMPLETO COM VÍDEO AULAS</h4>
-             
+              
               <!-- ESPAÇO PARA MOCKUP DO VIP NO PLANO DE PREÇOS -->
               <img src="mockup-vip.webp" onerror="this.onerror=null;this.src='https://placehold.co/500x350/10b981/white?text=Sua+Imagem:+mockup-vip.webp'" alt="Mockup VIP" class="w-full h-auto drop-shadow-xl mx-auto my-4 hover:scale-105 transition-transform">
 
@@ -711,7 +848,7 @@
                   <p class="flex items-start gap-2"><span class="text-[#10b981] text-lg leading-none">✔</span> <span>Script de Vendas p/ Whats (Bônus)</span></p>
                   <p class="flex items-start gap-2"><span class="text-[#10b981] text-lg leading-none">✔</span> <span>Suporte VIP para dúvidas</span></p>
               </div>
-             
+              
               <div class="text-center mb-6">
                   <p class="text-[13px] text-gray-400 line-through font-bold mb-1">de R$ 197,00 por</p>
                   <div class="flex items-center justify-center gap-1">
@@ -720,10 +857,10 @@
                   </div>
                   <p id="countdown1" class="text-red-600 font-black text-[11px] mt-3 uppercase italic tracking-wider">Desconto válido por: 01:43</p>
               </div>
-             
+              
               <!-- LINK ATUALIZADO: R$ 37,00 -->
-              <a href="https://confeiteira-mari.pay.yampi.com.br/r/7H4XDJMZMM" class="animate-pulse-cta block w-full py-5 bg-[#10b981] text-white font-black rounded-2xl text-center uppercase tracking-wider shadow-lg text-[1.15rem] italic hover:bg-[#059669] transition-colors">COMPRAR CURSO COMPLETO</a>
-             
+              <a id="btn-checkout-final" href="https://confeiteira-mari.pay.yampi.com.br/r/7H4XDJMZMM" class="animate-pulse-cta block w-full py-5 bg-[#10b981] text-white font-black rounded-2xl text-center uppercase tracking-wider shadow-lg text-[1.15rem] italic hover:bg-[#059669] transition-colors">COMPRAR CURSO COMPLETO</a>
+              
               <!-- Elementos de Segurança -->
               <div class="mt-5 flex flex-col items-center justify-center">
                   <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
@@ -867,10 +1004,10 @@
       }
 
       function showLoadingPage() { showView('loadingPage'); startProgressBar(); }
-     
+      
       document.addEventListener('DOMContentLoaded', () => {
           showView('landingPage');
-         
+          
           // Olheiro de Scroll (Intersection Observer) para ativar as animações na hora certa
           const observer = new IntersectionObserver((entries) => {
               entries.forEach(entry => {
