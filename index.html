@@ -12,7 +12,9 @@
     html,body{margin:0;padding:0}
     body{
       font-family:Arial,Helvetica,sans-serif;
-      background:#fdf2f8;
+      background:
+        radial-gradient(circle at 50% 0%,rgba(255,255,255,.9) 0%,rgba(253,242,248,0) 58%),
+        linear-gradient(180deg,#fff7fb 0%,#fdf2f8 100%);
       color:#111827;
       text-align:center;
       overflow-x:hidden;
@@ -27,21 +29,22 @@
     .muted{color:#6b7280}
     .small{font-size:13px;line-height:1.45}
     .center{text-align:center}
+
     .card{
-      background:#fff;
-      border:1px solid #f3f4f6;
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(255,255,255,.9);
       border-radius:24px;
       padding:24px;
-      box-shadow:0 8px 18px rgba(190,24,93,.08);
+      box-shadow:0 10px 26px rgba(190,24,93,.10);
     }
     .box{
-      background:#fff;
-      border:1px solid #eee;
+      background:rgba(255,255,255,.96);
+      border:1px solid rgba(255,255,255,.95);
       border-radius:22px;
       padding:18px;
       margin:14px 0;
       text-align:left;
-      box-shadow:0 4px 12px rgba(0,0,0,.035);
+      box-shadow:0 7px 18px rgba(0,0,0,.045);
     }
     .title{font-size:26px;line-height:1.08;font-weight:900;margin:0}
     .hero-title{font-size:21px;font-weight:700;line-height:1.15;margin:0}
@@ -55,10 +58,11 @@
       -webkit-mask-image:linear-gradient(to bottom,#000 65%,transparent 100%);
       mask-image:linear-gradient(to bottom,#000 65%,transparent 100%);
     }
+
     .btn{
       display:block;
       width:100%;
-      background:#10b981;
+      background:linear-gradient(180deg,#10b981,#059669);
       color:#fff;
       border:0;
       border-radius:18px;
@@ -68,9 +72,12 @@
       text-transform:uppercase;
       text-decoration:none;
       cursor:pointer;
-      box-shadow:0 8px 15px rgba(16,185,129,.25);
+      box-shadow:0 10px 18px rgba(16,185,129,.28);
+      transition:transform .15s ease,box-shadow .15s ease,filter .15s ease;
     }
-    .btn:active,.qbtn:active{transform:scale(.98)}
+    .btn:active,.qbtn:active{transform:scale(.985)}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 12px 22px rgba(16,185,129,.34);filter:saturate(1.05)}
+
     .qbtn{
       width:100%;
       display:flex;
@@ -79,7 +86,7 @@
       gap:12px;
       background:#fff;
       color:#111827;
-      border:1px solid #eee;
+      border:1px solid #f3d7e5;
       border-radius:18px;
       padding:18px;
       margin:8px 0;
@@ -87,32 +94,36 @@
       font-size:15px;
       font-weight:800;
       cursor:pointer;
-      box-shadow:0 4px 10px rgba(0,0,0,.04);
+      box-shadow:0 5px 14px rgba(190,24,93,.07);
+      transition:transform .15s ease,background .15s ease,border-color .15s ease;
     }
+    .qbtn:hover{background:#fff7fb;border-color:#f9a8d4;transform:translateY(-1px)}
+
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .img{
       width:100%;
       height:176px;
       object-fit:cover;
       border-radius:18px;
-      border:1px solid #eee;
+      border:1px solid #f3d7e5;
       background:#fce7f3;
+      box-shadow:0 6px 15px rgba(0,0,0,.06);
     }
     .bonus-img{
       width:100%;
       height:130px;
       object-fit:cover;
       border-radius:14px;
-      border:1px solid #eee;
+      border:1px solid #f3d7e5;
       background:#fce7f3;
     }
     .green-box{
-      background:#10b981;
+      background:linear-gradient(135deg,#10b981,#059669);
       color:#fff;
       border-radius:28px;
       padding:22px;
       margin:18px 0;
-      box-shadow:0 8px 15px rgba(16,185,129,.22);
+      box-shadow:0 10px 22px rgba(16,185,129,.26);
     }
     .pill{
       display:inline-block;
@@ -127,12 +138,40 @@
     }
     .price{font-size:64px;font-weight:900;letter-spacing:-3px}
     .progress{height:12px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:22px}
-    .bar{height:100%;width:0;background:#10b981}
+    .bar{height:100%;width:0;background:#10b981;transition:width .08s linear}
     ul.clean{padding-left:0;list-style:none;text-align:left}
     ul.clean li{margin:9px 0}
+
+    .shine{position:relative;overflow:hidden}
+    .shine:after{
+      content:"";
+      position:absolute;
+      top:0;
+      left:-80%;
+      width:45%;
+      height:100%;
+      background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);
+      transform:skewX(-18deg);
+      pointer-events:none;
+    }
+
+    .ready .reveal{animation:reveal .34s ease-out both}
+    .ready .reveal-2{animation:reveal .42s ease-out both}
+    .ready .reveal-3{animation:reveal .50s ease-out both}
+    @keyframes reveal{
+      from{opacity:0;transform:translateY(10px)}
+      to{opacity:1;transform:none}
+    }
+
     @media (prefers-reduced-motion:no-preference){
       .pulse{animation:pulse 2.8s infinite}
       @keyframes pulse{50%{transform:scale(1.018)}}
+      .ready .shine:after{animation:shine 3.5s ease-in-out infinite}
+      @keyframes shine{0%{left:-80%}45%,100%{left:130%}}
+    }
+    @media (prefers-reduced-motion:reduce){
+      .pulse,.ready .reveal,.ready .reveal-2,.ready .reveal-3,.ready .shine:after{animation:none!important}
+      .btn,.qbtn,.bar{transition:none!important}
     }
   </style>
 </head>
@@ -146,18 +185,26 @@
 
     function goTop(){ window.scrollTo(0,0); }
 
+    function enableMotion(){
+      document.body.classList.remove("ready");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => document.body.classList.add("ready"));
+      });
+    }
+
     function render(view){
       app.innerHTML = views[view]();
       goTop();
+      enableMotion();
       if(view === "checkout") startTimer();
     }
 
     function btn(text, action){
-      return `<button class="btn pulse" type="button" onclick="${action}">${text}</button>`;
+      return `<button class="btn pulse shine reveal-3" type="button" onclick="${action}">${text}</button>`;
     }
 
     function q(text, emoji, next){
-      return `<button class="qbtn" type="button" onclick="render('${next}')"><span>${emoji} ${text}</span><b class="hi">›</b></button>`;
+      return `<button class="qbtn reveal-2" type="button" onclick="render('${next}')"><span>${emoji} ${text}</span><b class="hi">›</b></button>`;
     }
 
     function list(items){
@@ -171,7 +218,7 @@
     function quiz(title, options, next){
       return `
         <section>
-          <div class="card">
+          <div class="card reveal">
             <h2 class="title">${title}</h2>
             <p class="small muted">Toque na sua resposta:</p>
           </div>
@@ -184,7 +231,7 @@
 
     function feature(emoji,title,text){
       return `
-        <div class="box">
+        <div class="box reveal-2">
           <h3>${emoji} <span class="hi">${title}</span></h3>
           <p class="small muted">${text}</p>
         </div>
@@ -193,7 +240,7 @@
 
     function testimonial(name,text,emoji){
       return `
-        <div class="box">
+        <div class="box reveal-2">
           <b style="color:#3b5998">${emoji} ${name}</b>
           <p class="small">${text}</p>
           <p class="small muted">Curtir · Responder · agora</p>
@@ -203,7 +250,7 @@
 
     function bonus(src,kicker,title,text,oldPrice){
       return `
-        <div class="box">
+        <div class="box reveal-2">
           ${img(src,title,"bonus-img")}
           <p><span class="pill">${kicker}</span></p>
           <h3>${title}</h3>
@@ -218,7 +265,7 @@
 
     function faq(q,a){
       return `
-        <div class="box">
+        <div class="box reveal-2">
           <b>${q}</b>
           <p class="small muted">${a}</p>
         </div>
@@ -298,7 +345,7 @@
 
       method: () => `
         <section>
-          <div class="card">
+          <div class="card reveal">
             <h2 class="title">Por que a Cerâmica Fria<br><span class="hi">vende todo dia:</span></h2>
           </div>
 
@@ -307,17 +354,17 @@
           ${feature("💰","Custo quase zero","Produza pagando centavos de material e venda com preço de acessório premium.")}
 
           <div class="grid">
-            <div class="box center">
+            <div class="box center reveal-2">
               <b class="hi">💎 Resistentes</b>
               <p class="small muted">A peça finalizada fica durinha, resistente e pronta para uso diário.</p>
             </div>
-            <div class="box center">
+            <div class="box center reveal-2">
               <b class="hi">⚡ Secagem perfeita</b>
               <p class="small muted">O brinco seca mantendo os detalhes e o formato impecável.</p>
             </div>
           </div>
 
-          <div class="box">
+          <div class="box reveal-2">
             <p class="small"><b class="hi">Extrema leveza:</b> mesmo os maxi-brincos não pesam na orelha da cliente.</p>
             <p class="small"><b class="hi">Padrão premium:</b> aparência e embalagem com cara de marca famosa.</p>
           </div>
@@ -328,27 +375,27 @@
 
       profit: () => `
         <section>
-          <div class="card">
+          <div class="card reveal">
             <h2 class="title">A <span class="hi">Matemática</span> do Lucro</h2>
           </div>
 
-          <p class="muted" style="font-weight:700;line-height:1.5">
+          <p class="muted reveal-2" style="font-weight:700;line-height:1.5">
             O custo para produzir um brinco artesanal de cerâmica fria é quase nulo. Veja quanto você coloca no bolso:
           </p>
 
-          <div class="box">
+          <div class="box reveal-2">
             <p><b>Custo médio:</b> ~ R$ 0,80</p>
             <p><b>Preço de venda médio:</b> R$ 39,90</p>
             <p><b>Lucro limpo:</b> <span class="hi" style="font-size:24px;font-weight:900">R$ 39,10/par</span></p>
           </div>
 
-          <div class="green-box center">
+          <div class="green-box center reveal-2">
             <p style="font-weight:900;text-transform:uppercase">Vendendo apenas 3 pares por dia:</p>
             <div style="font-size:46px;font-weight:900">R$ 3.519,00</div>
             <p><b>de lucro livre no mês!</b></p>
           </div>
 
-          <p class="small muted" style="font-weight:700">
+          <p class="small muted reveal-2" style="font-weight:700">
             Só 3 peças por dia trabalhando poucas horas na mesa da sua cozinha.
           </p>
 
@@ -358,7 +405,7 @@
 
       testimonials: () => `
         <section>
-          <div class="card">
+          <div class="card reveal">
             <h2 class="title">Quem comprou, aprovou!</h2>
           </div>
 
@@ -373,7 +420,7 @@
 
       checkout: () => `
         <section>
-          <div class="card">
+          <div class="card reveal">
             <h2 class="title">Seu plano está pronto!</h2>
             <div style="width:52px;height:52px;border-radius:50%;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center;margin:16px auto;font-size:28px;font-weight:900">✓</div>
             <p class="small muted" style="font-weight:800;text-transform:uppercase">
@@ -381,7 +428,7 @@
             </p>
           </div>
 
-          <div class="box">
+          <div class="box reveal-2">
             <p><span class="pill">Acesso imediato</span></p>
             <h3 class="center">Tudo que você vai receber no Método <span class="hi">Brincos de Cerâmica Fria</span>:</h3>
             ${list([
@@ -398,8 +445,8 @@
             <p class="center small"><b>Transforme sua mesa em uma fábrica de dinheiro hoje mesmo.</b></p>
           </div>
 
-          <h3 class="center">Você vai aprender a fazer<br><span class="hi">essas obras de arte:</span></h3>
-          <div class="grid">
+          <h3 class="center reveal-2">Você vai aprender a fazer<br><span class="hi">essas obras de arte:</span></h3>
+          <div class="grid reveal-2">
             ${img("imagem2.webp","Brinco artesanal 1")}
             ${img("imagem3.webp","Brinco artesanal 2")}
             ${img("imagem4.webp","Brinco artesanal 3")}
@@ -408,8 +455,8 @@
             ${img("imagem7.webp","Brinco artesanal 6")}
           </div>
 
-          <h3 class="center" style="margin-top:28px">E não para por aí...</h3>
-          <p class="small muted center" style="font-weight:700">
+          <h3 class="center reveal-2" style="margin-top:28px">E não para por aí...</h3>
+          <p class="small muted center reveal-2" style="font-weight:700">
             Garantindo sua vaga hoje, vou liberar R$ 153,00 em bônus exclusivos 100% de graça:
           </p>
 
@@ -417,9 +464,9 @@
           ${bonus("mockup-bonus2.webp","Bônus #02","Script de Vendas para WhatsApp","O texto persuasivo exato para mandar em grupos, família e clientes.","R$ 47,00")}
           ${bonus("mockup-bonus3.webp","Bônus #03","Calculadora Automática de Lucro","Coloque o valor dos materiais e saiba o preço certo de venda na hora.","R$ 39,00")}
 
-          <h3 class="center">Garanta seu acesso e comece agora</h3>
+          <h3 class="center reveal-2">Garanta seu acesso e comece agora</h3>
 
-          <div class="box center" style="border:4px solid #10b981">
+          <div class="box center reveal-2" style="border:4px solid #10b981">
             <p><span class="pill" style="background:#10b981">Oferta especial</span></p>
             <h3>Curso completo com vídeo aulas</h3>
             ${img("mockup-vip.webp","Mockup do curso","bonus-img")}
@@ -440,36 +487,36 @@
               <span style="font-size:34px;font-weight:900">,00</span>
             </div>
             <p id="countdown1" class="hi small" style="font-weight:900">Desconto válido por: 01:43</p>
-            <a id="btn-checkout-final" class="btn pulse" href="${CHECKOUT_URL}">Comprar curso completo</a>
+            <a id="btn-checkout-final" class="btn pulse shine" href="${CHECKOUT_URL}">Comprar curso completo</a>
             <p class="small muted">🔒 Compra 100% segura · PIX · Cartão · Boleto</p>
           </div>
 
-          <div class="box center">
+          <div class="box center reveal-2">
             <p class="small" style="font-weight:900">⚠️ Atenção: oferta expirando</p>
             <h3 id="countdown2" class="hi" style="font-size:32px;margin:6px 0">03:00</h3>
             <p class="small muted">Esta é a última chance de levar o plano com desconto.</p>
           </div>
 
-          <h3 class="center">Dúvidas frequentes</h3>
+          <h3 class="center reveal-2">Dúvidas frequentes</h3>
           ${faq("Preciso de um forno industrial?","Não. A cerâmica fria seca naturalmente ao ar livre. Você não precisa de forno a gás, elétrico ou industrial.")}
           ${faq("Como vou receber o material?","Imediatamente após o pagamento, você receberá um e-mail com login e senha para acessar a plataforma pelo celular ou computador.")}
           ${faq("Nunca fiz artesanato, vou conseguir?","Sim. O método foi criado para quem está começando do absoluto zero e não sabe desenhar.")}
 
-          <div class="center" style="margin:24px 0">
+          <div class="center reveal-2" style="margin:24px 0">
             ${img("selo-garantia.webp","Garantia de 7 dias","bonus-img")}
             <p class="small muted"><b>Garantia incondicional de 7 dias.</b> Seu risco é zero.</p>
           </div>
 
-          <button class="btn" type="button" onclick="goTop()">Quero lucrar neste verão!</button>
+          <button class="btn shine reveal-2" type="button" onclick="goTop()">Quero lucrar neste verão!</button>
 
-          <div class="card" style="margin-top:22px">
+          <div class="card reveal-2" style="margin-top:22px">
             <h3 class="serif hi" style="font-size:32px;margin:0">Mariana</h3>
             <p class="small muted" style="font-weight:700">
               Criadora do Treinamento Brincos de Cerâmica Fria, artesã e especialista em acessórios premium.
               <br><br>
               Percebi o potencial incrível que a cerâmica fria tem para gerar renda alta de forma rápida e com quase zero investimento.
             </p>
-            <button class="btn" type="button" onclick="goTop()">Quero viver trabalhando de casa!</button>
+            <button class="btn shine" type="button" onclick="goTop()">Quero viver trabalhando de casa!</button>
           </div>
         </section>
       `
@@ -478,7 +525,7 @@
     function showLoading(){
       app.innerHTML = `
         <section style="min-height:80dvh;display:flex;align-items:center">
-          <div class="card" style="width:100%">
+          <div class="card reveal" style="width:100%">
             <div style="width:72px;height:72px;border-radius:50%;background:#fff;margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:34px">✨</div>
             <h2 class="title">Montando seu plano...</h2>
             <div class="progress"><div class="bar" id="bar"></div></div>
@@ -487,6 +534,7 @@
         </section>
       `;
       goTop();
+      enableMotion();
 
       const bar = document.getElementById("bar");
       const items = document.getElementById("items");
@@ -506,7 +554,7 @@
         bar.style.width = Math.min(p,100) + "%";
 
         if(p >= i * 20 && i < arr.length){
-          items.innerHTML += `<p>✓ ${arr[i]}</p>`;
+          items.innerHTML += `<p class="reveal-2">✓ ${arr[i]}</p>`;
           i++;
         }
 
@@ -541,7 +589,8 @@
       }, 1000);
     }
 
-    render("landing");
+    app.innerHTML = views.landing();
+    goTop();
   </script>
 </body>
 </html>
